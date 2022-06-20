@@ -2,17 +2,20 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
+import json
 import pathlib
 import os
 import sys
 import requests
 import numpy as np
+import huggingface_hub as hub
 from collections import OrderedDict
 from . import datasets
 import warnings; warnings.filterwarnings("ignore")
 
 
 model_urls = {}
+model_mapping_hf = {}
 
 model_urls['all'] = {
     "description": 'This model was trained on the datasets: nih-pc-chex-mimic_ch-google-openi-rsna and is described here: https://arxiv.org/abs/2002.02497',
@@ -22,6 +25,7 @@ model_urls['all'] = {
     "ppv80_thres":[0.72715247, 0.8885005, 0.92493945, 0.6527224, 0.68707734, 0.46127197, 0.7272054, 0.6127343, 0.9878492, 0.61979693, 0.66309816, 0.7853459, 0.930661, 0.93645346, 0.6788558, 0.6547198, 0.61614525, 0.8489876]
 }
 model_urls['densenet121-res224-all'] = model_urls['all']
+model_mapping_hf['all'] = "densenet121-res224-all"
 
 
 model_urls['nih'] = {
@@ -30,6 +34,7 @@ model_urls['nih'] = {
     "op_threshs":[0.039117552, 0.0034529066, 0.11396341, 0.0057298196, 0.00045666535, 0.0018880932, 0.012037827, 0.038744126, 0.0037213727, 0.014730946, 0.016149804, 0.054241467, 0.037198864, 0.0004403434, np.nan, np.nan, np.nan, np.nan],
 }
 model_urls['densenet121-res224-nih'] = model_urls['nih']
+model_mapping_hf['nih'] = "densenet121-res224-nih"
 
 
 model_urls['pc'] = {
@@ -38,6 +43,7 @@ model_urls['pc'] = {
     "op_threshs": [0.031012505, 0.013347598, 0.081435576, 0.001262615, 0.002587246, 0.0035944257, 0.0023071, 0.055412333, 0.044385884, 0.042766232, 0.043258056, 0.037629247, 0.005658899, 0.0091741895, np.nan, 0.026507627, np.nan, np.nan]
 }
 model_urls['densenet121-res224-pc'] = model_urls['pc']
+model_mapping_hf['pc'] = "densenet121-res224-pc"
 
 model_urls['chex'] = {
     "weights_url":'https://github.com/mlmed/torchxrayvision/releases/download/v1/chex-densenet121-d121-tw-lr001-rot45-tr15-sc15-seed0-best.pt',
@@ -45,6 +51,7 @@ model_urls['chex'] = {
     "op_threshs": [0.1988969, 0.05710573, np.nan, 0.0531293, 0.1435217, np.nan, np.nan, 0.27212676, 0.07749717, np.nan, 0.19712369, np.nan, np.nan, np.nan, 0.09932402, 0.09273402, 0.3270967, 0.10888247],
 }
 model_urls['densenet121-res224-chex'] = model_urls['chex']
+model_mapping_hf['chex'] = "densenet121-res224-chex"
 
 
 model_urls['rsna'] = {
@@ -53,6 +60,7 @@ model_urls['rsna'] = {
     "op_threshs": [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 0.13486601, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 0.13511065, np.nan]
 }
 model_urls['densenet121-res224-rsna'] = model_urls['rsna']
+model_mapping_hf['rsna'] = "densenet121-res224-rsna"
 
 model_urls['mimic_nb'] = {
     "weights_url":'https://github.com/mlmed/torchxrayvision/releases/download/v1/mimic_nb-densenet121-d121-tw-lr001-rot45-tr15-sc15-seed0-best.pt',
@@ -60,6 +68,7 @@ model_urls['mimic_nb'] = {
     "op_threshs": [0.08558747, 0.011884617, np.nan, 0.0040595434, 0.010733786, np.nan, np.nan, 0.118761964, 0.022924708, np.nan, 0.06358637, np.nan, np.nan, np.nan, 0.022143636, 0.017476924, 0.1258702, 0.014020768],
 }
 model_urls['densenet121-res224-mimic_nb'] = model_urls['mimic_nb']
+model_mapping_hf['mimic_nb'] = "densenet121-res224-mimic_nb"
 
 model_urls['mimic_ch'] = {
     "weights_url":'https://github.com/mlmed/torchxrayvision/releases/download/v1/mimic_ch-densenet121-d121-tw-lr001-rot45-tr15-sc15-seed0-best.pt',
@@ -67,6 +76,7 @@ model_urls['mimic_ch'] = {
     "op_threshs": [0.09121389, 0.010573786, np.nan, 0.005023008, 0.003698257, np.nan, np.nan, 0.08001232, 0.037242252, np.nan, 0.05006329, np.nan, np.nan, np.nan, 0.019866971, 0.03823637, 0.11303808, 0.0069147074],
 }
 model_urls['densenet121-res224-mimic_ch'] = model_urls['mimic_ch']
+model_mapping_hf['mimic_ch'] = "densenet121-res224-mimic_ch"
 
 model_urls['resnet50-res512-all'] = {
     "description": 'This model was trained on the datasets pc-nih-rsna-siim-vin at a 512x512 resolution.',
@@ -75,6 +85,7 @@ model_urls['resnet50-res512-all'] = {
     "op_threshs": [0.51570356, 0.50444704, 0.53787947, 0.50723547, 0.5025118, 0.5035252, 0.5038076, 0.51862943, 0.5078151, 0.50724894, 0.5056339, 0.510706, 0.5053923, 0.5020846, np.nan, 0.5080557, 0.5138526, np.nan],
     "ppv80_thres": [0.690908, 0.720028, 0.7303882, 0.7235838, 0.6787441, 0.7304924, 0.73105824, 0.6839408, 0.7241559, 0.7219969, 0.6346738, 0.72764945, 0.7285066, 0.5735704, np.nan, 0.69684714, 0.7135549, np.nan]
 }
+model_mapping_hf['resnet50-res512-all'] = "resnet50-res512-all"
 
 
 class _DenseLayer(nn.Sequential):
@@ -141,7 +152,8 @@ class DenseNet(nn.Module):
                  in_channels=1, 
                  weights=None, 
                  op_threshs=None, 
-                 apply_sigmoid=False
+                 apply_sigmoid=False,
+                 from_hf_hub=False
         ):
 
         super(DenseNet, self).__init__()            
@@ -153,7 +165,16 @@ class DenseNet(nn.Module):
             if not self.weights in model_urls.keys():
                 possible_weights = [k for k in model_urls.keys() if k.startswith("densenet")]
                 raise Exception("Weights value must be in {}".format(possible_weights))
-                
+
+            if from_hf_hub:
+                hub_org = "torchxrayvision"
+                model_name = model_mapping_hf.get(self.weights, self.weights)
+                config_file_url = hub.hf_hub_url(f"{hub_org}/{model_name}", filename="config.json")
+                config_file = hub.cached_download(config_file_url)
+                with open(config_file) as f:
+                    config = json.load(f)
+                model_urls[weights] = config
+   
             # set to be what this model is trained to predict
             self.pathologies = model_urls[weights]["labels"]
             
@@ -204,7 +225,7 @@ class DenseNet(nn.Module):
         self.register_buffer('op_threshs', op_threshs)
  
         if self.weights != None:
-            self.weights_filename_local = get_weights(weights)
+            self.weights_filename_local = get_weights(weights, from_hf_hub)
             
             try:
                 savedmodel = torch.load(self.weights_filename_local, map_location='cpu')
@@ -258,7 +279,7 @@ class DenseNet(nn.Module):
 ##########################
 class ResNet(nn.Module):
 
-    def __init__(self, weights: str = None, apply_sigmoid: bool = False):
+    def __init__(self, weights: str = None, apply_sigmoid: bool = False, from_hf_hub: bool = False):
         super(ResNet, self).__init__()  
         
         self.weights = weights
@@ -268,7 +289,16 @@ class ResNet(nn.Module):
             possible_weights = [k for k in model_urls.keys() if k.startswith("resnet")]
             raise Exception("Weights value must be in {}".format(possible_weights))
         
-        self.weights_filename_local = get_weights(weights)
+        if from_hf_hub:
+            hub_org = "torchxrayvision"
+            model_name = model_mapping_hf.get(self.weights, self.weights)
+            config_file_url = hub.hf_hub_url(f"{hub_org}/{model_name}", filename="config.json")
+            config_file = hub.cached_download(config_file_url)
+            with open(config_file) as f:
+                config = json.load(f)
+            model_urls[weights] = config
+
+        self.weights_filename_local = get_weights(weights, from_hf_hub)
         self.weights_dict = model_urls[weights]
         self.pathologies = model_urls[weights]["labels"]
 
@@ -419,21 +449,27 @@ def get_model(weights: str, **kwargs):
         raise Exception("Unknown model")
 
 
-def get_weights(weights: str):
+def get_weights(weights: str, from_hf_hub: bool = False):
     if not weights in model_urls:
         raise Exception("Weights not found. Valid options: {}".format(list(model_urls.keys())))
     
-    url = model_urls[weights]["weights_url"]
-    weights_filename = os.path.basename(url)
-    weights_storage_folder = os.path.expanduser(os.path.join("~",".torchxrayvision","models_data"))
-    weights_filename_local = os.path.expanduser(os.path.join(weights_storage_folder,weights_filename))
-    
-    if not os.path.isfile(weights_filename_local):
-        print("Downloading weights...")
-        print("If this fails you can run `wget {} -O {}`".format(url, weights_filename_local))
-        pathlib.Path(weights_storage_folder).mkdir(parents=True, exist_ok=True)
-        download(url, weights_filename_local)
-    
+    if not from_hf_hub:
+        url = model_urls[weights]["weights_url"]
+        weights_filename = os.path.basename(url)
+        weights_storage_folder = os.path.expanduser(os.path.join("~",".torchxrayvision","models_data"))
+        weights_filename_local = os.path.expanduser(os.path.join(weights_storage_folder,weights_filename))
+
+        if not os.path.isfile(weights_filename_local):
+            print("Downloading weights...")
+            print("If this fails you can run `wget {} -O {}`".format(url, weights_filename_local))
+            pathlib.Path(weights_storage_folder).mkdir(parents=True, exist_ok=True)
+            download(url, weights_filename_local)
+    else:
+        hub_org = "torchxrayvision"
+        model_name = model_mapping_hf.get(weights, weights)
+        model_file_url = hub.hf_hub_url(f"{hub_org}/{model_name}", filename="model.pt")
+        model_file = hub.cached_download(model_file_url)
+        weights_filename_local = model_file
     return weights_filename_local
     
 

@@ -4,7 +4,7 @@
 import os,sys
 sys.path.insert(0,"..")
 from glob import glob
-import matplotlib.pyplot as plt
+
 import numpy as np
 import argparse
 import skimage, skimage.io
@@ -23,6 +23,7 @@ parser.add_argument('-weights', type=str,default="densenet121-res224-all")
 parser.add_argument('-feats', default=False, help='', action='store_true')
 parser.add_argument('-cuda', default=False, help='', action='store_true')
 parser.add_argument('-resize', default=False, help='', action='store_true')
+parser.add_argument('-from_hf_hub', default=False, help='download model from hub', action='store_true')
 
 cfg = parser.parse_args()
 
@@ -50,7 +51,7 @@ else:
 img = transform(img)
 
 
-model = xrv.models.get_model(cfg.weights)
+model = xrv.models.get_model(cfg.weights, from_hf_hub=cfg.from_hf_hub)
 
 output = {}
 with torch.no_grad():
