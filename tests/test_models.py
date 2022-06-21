@@ -4,6 +4,8 @@ import torch
 import torchxrayvision as xrv
 sys.path.insert(0, "../torchxrayvision/")
 
+# set seed for reproducibility
+torch.manual_seed(0)
 
 def test_model_basic():
     model = xrv.models.DenseNet()
@@ -111,3 +113,18 @@ def test_normalization_check():
             model(test_x)
             assert xrv.models.warning_log['norm_correct'] == True, ra
 
+
+
+def test_model_equivalence():
+    models = [xrv.models.DenseNet(weights="all"),
+             xrv.models.DenseNet(weights="mimic_ch"),
+             xrv.models.ResNet(weights="resnet50-res512-all")]
+    models_hf = [xrv.models.DenseNet(weights="all", from_hf_hub=True),
+             xrv.models.DenseNet(weights="mimic_ch", from_hf_hub=True),
+             xrv.models.ResNet(weights="resnet50-res512-all", from_hf_hub=True)]
+    
+    for model, model_hf in zip(models,models_hf):
+        img = torch.rand(1,1,224,224)
+        pred = model(img)
+        pred_hf = model_hf(img)
+        assert torch.allclose(pred, pred_hf, atol=1e-4)
