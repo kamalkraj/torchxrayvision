@@ -1,6 +1,7 @@
 import setuptools
 from setuptools import setup, find_packages
-from torchxrayvision import _version
+
+verion = '0.0.38a'
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -9,7 +10,7 @@ REQUIREMENTS = [i.strip() for i in open("requirements.txt").readlines()]
 
 setuptools.setup(
     name="torchxrayvision",
-    version=_version.__version__,
+    version=verion,
     author="Joseph Paul Cohen",
     author_email="joseph@josephpcohen.com",
     description="TorchXRayVision: A library of chest X-ray datasets and models",
